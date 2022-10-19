@@ -1,0 +1,28 @@
+﻿@{
+    ViewData["Title"] = "Categories Page";
+}
+@model CategoryListViewModel
+<div class="text-center">
+    <h3 class="display-4">Welcome to Categories Page</h3>
+</div>
+<br />
+<table class="table table-bordered table-hover">
+    <thead>
+        <tr>
+            <th></th>
+            <th>Category Name</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    @foreach (var category in Model.Categories)
+    {
+        <tbody>
+            <tr>
+                <td>@category.CategoryId</td>
+                <td>@category.CategoryName</td>
+                <td>@category.Description</td>
+            </tr>
+        </tbody>
+    }
+</table>
+
