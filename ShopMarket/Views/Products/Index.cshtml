@@ -8,6 +8,9 @@
     <h3 class="display-4">Welcome to Products Page</h3>
 </div>
 <br />
+<p>
+    <a asp-action="Create">Create New</a>
+</p>
 <table class="table table-bordered table-hover">
     <thead>
         <tr>
@@ -29,14 +32,18 @@
             <tr>
                 <td>@product.ProductId</td>
                 <td>@product.ProductName</td>
-                <td>@product.Supplier.CompanyName</td>
-                <td>@product.Category.CategoryName</td>
+                <td>@product.Supplier?.CompanyName</td>
+                <td>@product.Category?.CategoryName</td>
                 <td>@product.QuantityPerUnit</td>
                 <td>@product.UnitPrice</td>
                 <td>@product.UnitsInStock</td>
                 <td>@product.UnitsOnOrder</td>
                 <td>@product.ReorderLevel</td>
                 <td>@product.Discontinued</td>
+                <td>
+                    <a asp-action="Edit" asp-route-id="@product.ProductId">Edit</a> |
+                    <a asp-action="Delete" asp-route-id="@product.ProductId">Delete</a>
+                </td>
             </tr>
         }
     </tbody>
