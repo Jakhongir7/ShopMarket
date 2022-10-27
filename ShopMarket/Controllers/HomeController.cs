@@ -15,6 +15,7 @@ namespace ShopMarket.Controllers
 
         public IActionResult Index()
         {
+            _logger.LogInformation("Messages of Logs in method Index()");
             return View();
         }
 

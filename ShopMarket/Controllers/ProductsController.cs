@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using ShopMarket.Extensions;
+using ShopMarket.AutoMapper;
+using ShopMarket.Logs;
 using ShopMarket.Repository;
 using ShopMarket.Repository.Interface;
 using ShopMarket.ViewModels;
@@ -13,20 +15,24 @@ namespace ShopMarket.Controllers
         private readonly IProductRepository _productRepository;
         private readonly ICategoryRepository _categoryRepository;
         private readonly ISupplierRepository _supplierRepository;
+        private readonly ILogger<ProductsController> _logger;
 
-        public ProductsController(IProductRepository productRepository, ICategoryRepository categoryRepository, ISupplierRepository supplierRepository)
+        public ProductsController(IProductRepository productRepository, ICategoryRepository categoryRepository, ISupplierRepository supplierRepository, ILogger<ProductsController> logger)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
             _supplierRepository = supplierRepository;
+            _logger = logger;
         }
         public IActionResult Index(int page = 1)
         {
+            _logger.LogInformation("Messages of Logs in method Index()");
             var dataPage = LinqExtensions.GetPaged(_productRepository.AllProducts, page, 10);
             ProductListViewModel piesListViewModel = new ProductListViewModel(_productRepository.AllProducts, dataPage);
             return View(piesListViewModel);
         }
 
+        [HttpGet]
         public IActionResult Create()
         {
             var productCreate = _productRepository.CreateProduct();
@@ -40,38 +46,16 @@ namespace ShopMarket.Controllers
             {
                 if (ModelState.IsValid)
                 {
-                    // Настройка конфигурации AutoMapper
-                    var config = new MapperConfiguration(cfg => cfg.CreateMap<ProductCreateViewModel, Product>()
-                        .ForMember("CategoryId", opt => opt.MapFrom(s => s.SelectedCategoryName))
-                        .ForMember("SupplierId", opt => opt.MapFrom(c => c.SelectedSupplierName)));
-                    var mapper = new Mapper(config);
-                    // Выполняем сопоставление
-                    Product product = mapper.Map<ProductCreateViewModel, Product>(productCreateViewModel);
+                    Product product = AutoMapper.AutoMapper.ProductProfile(productCreateViewModel);
 
-                    //var CategoryId = productCreateViewModel.SelectedCategoryName != null ?
-                    //    int.Parse(productCreateViewModel.SelectedCategoryName) : default;
-                    //Product product = new Product()
-                    //{
-                    //    Category = _categoryRepository.GetById(CategoryId)
-                    //};
-                    //product.CategoryId = CategoryId;
-                    //product.ProductName = productCreateViewModel.ProductName;
-                    //product.QuantityPerUnit = productCreateViewModel.QuantityPerUnit;
-                    //product.UnitPrice = productCreateViewModel.UnitPrice;
-                    //product.UnitsInStock = productCreateViewModel.UnitsInStock;
-                    //product.UnitsOnOrder = productCreateViewModel.UnitsOnOrder;
-                    //product.ReorderLevel = productCreateViewModel.ReorderLevel;
-                    //product.Discontinued = productCreateViewModel.Discontinued;
-                    //var mapper = InitializeAutomapper();
-                    //var productModel = mapper.Map<ProductCreateViewModel, Product>(productCreateViewModel);
                     _productRepository.Add(product);
                     _productRepository.SaveChanges();
                     return RedirectToAction(nameof(Index));
                 }
             }
-            catch (DbUpdateException /* ex */)
+            catch (Exception ex)
             {
-                //Log the error (uncomment ex variable name and write a log.
+                _logger.LogWarning(MyLogEvents.UpdateItem, ex, "Post Create cannot create");
                 ModelState.AddModelError("", "Unable to save changes. " +
                     "Try again, and if the problem persists " +
                     "see your system administrator.");
@@ -79,43 +63,28 @@ namespace ShopMarket.Controllers
             return View(productCreateViewModel);
         }
 
-        //private Mapper InitializeAutomapper()
-        //{
-        //    var config = new MapperConfiguration(cfg =>
-        //    {
-        //        cfg.CreateMap<Product, ProductCreateViewModel>()
-        //       .ForMember(dest => dest.SelectedCategoryName, act => act.MapFrom(src => src.Category.CategoryName));
-        //    });
-
-        //    var mapper = new Mapper(config);
-        //    return mapper;
-        //}
-
+        [HttpGet]
         public IActionResult Edit(int? id)
         {
             if (id == null)
             {
+                _logger.LogWarning(MyLogEvents.UpdateItem, "Get Edit({id}) NOT FOUND", id);
                 return NotFound();
             }
 
-            var product = _productRepository.GetById(id);
+            Product product = _productRepository.GetById(id);
 
             // Настройка конфигурации AutoMapper
-            var config = new MapperConfiguration(cfg => cfg.CreateMap<Product, ProductCreateViewModel>()
-                .ForMember("SelectedCategoryName", opt => opt.MapFrom(s => s.CategoryId))
-                .ForMember("SelectedSupplierName", opt => opt.MapFrom(c => c.SupplierId))
-                );
-            var mapper = new Mapper(config);
-            // Выполняем сопоставление
-            ProductCreateViewModel productCreateViewModel = mapper.Map<Product, ProductCreateViewModel>(product);
-
+            ProductCreateViewModel productCreateViewModel = AutoMapper.AutoMapper.ProductCreateViewModelProfile(product);
 
             if (productCreateViewModel == null)
             {
+                _logger.LogWarning(MyLogEvents.UpdateItem, "Get Edit({productCreateViewModel}) NOT FOUND", productCreateViewModel);
                 return NotFound();
             }
             productCreateViewModel.Categories = _categoryRepository.GetCategories();
             productCreateViewModel.Suppliers = _supplierRepository.GetSuppliers();
+
             return View(productCreateViewModel);
         }
 
@@ -124,6 +93,7 @@ namespace ShopMarket.Controllers
         {
             if (id == null)
             {
+                _logger.LogWarning(MyLogEvents.UpdateItem, "Post Edit({id}) NOT FOUND", id);
                 return NotFound();
             }
             
@@ -131,21 +101,15 @@ namespace ShopMarket.Controllers
             {
                 try
                 {
-                    // Настройка конфигурации AutoMapper
-                    var config = new MapperConfiguration(cfg => cfg.CreateMap<ProductCreateViewModel, Product>()
-                        .ForMember("CategoryId", opt => opt.MapFrom(s => s.SelectedCategoryName))
-                        .ForMember("SupplierId", opt => opt.MapFrom(c => c.SelectedSupplierName))
-                        );
-                    var mapper = new Mapper(config);
-                    // Выполняем сопоставление
-                     Product product = mapper.Map<ProductCreateViewModel, Product>(productCreateViewModel);
+                    Product product = AutoMapper.AutoMapper.ProductProfile(productCreateViewModel);
+
                     _productRepository.Edit(product);
                     _productRepository.SaveChanges();
                     return RedirectToAction(nameof(Index));
                 }
-                catch (DbUpdateException /* ex */)
+                catch (Exception ex )
                 {
-                    //Log the error (uncomment ex variable name and write a log.)
+                    _logger.LogWarning(MyLogEvents.UpdateItem, ex, "Post Edit({id}) cannot edit", id);
                     ModelState.AddModelError("", "Unable to save changes. " +
                         "Try again, and if the problem persists, " +
                         "see your system administrator.");
@@ -154,17 +118,20 @@ namespace ShopMarket.Controllers
             return View(productCreateViewModel);
         }
 
+        [HttpGet]
         public IActionResult Delete(int? id, bool? saveChangesError = false)
         {
             if (id == null)
             {
+                _logger.LogWarning(MyLogEvents.DeleteItem, "Get Delete({id}) NOT FOUND", id);
                 return NotFound();
             }
-
-            var product = _productRepository.AllProducts.FirstOrDefault(s => s.ProductId == id);
+            Product product = _productRepository.GetById(id);
+            //var product = _productRepository.AllProducts.FirstOrDefault(s => s.ProductId == id);
 
             if (product == null)
             {
+                _logger.LogWarning(MyLogEvents.DeleteItem, "Get Delete({product}) NOT FOUND", product);
                 return NotFound();
             }
 
@@ -174,16 +141,16 @@ namespace ShopMarket.Controllers
                     "Delete failed. Try again, and if the problem persists " +
                     "see your system administrator.";
             }
-
             return View(product);
         }
 
-        [HttpPost, ActionName("Delete")]
-        public IActionResult DeleteConfirmed(int id)
+        [HttpPost]
+        public IActionResult Delete(int id)
         {
-            var product = _productRepository.GetById(id);
+            Product product = _productRepository.GetById(id);
             if (product == null)
             {
+                _logger.LogWarning(MyLogEvents.DeleteItem, "Post Delete({product}) NOT FOUND", product);
                 return RedirectToAction(nameof(Index));
             }
 
@@ -193,12 +160,11 @@ namespace ShopMarket.Controllers
                 _productRepository.SaveChanges();
                 return RedirectToAction(nameof(Index));
             }
-            catch (DbUpdateException /* ex */)
+            catch (Exception ex)
             {
-                //Log the error (uncomment ex variable name and write a log.)
+                _logger.LogWarning(MyLogEvents.DeleteItem, ex, "Post Delete({id}) cannot delete", id);
                 return RedirectToAction(nameof(Delete), new { id = id, saveChangesError = true });
             }
         }
-
     }
 }
